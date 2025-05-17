@@ -1,16 +1,31 @@
 <script lang="ts">
-	import type { PageServerData } from './$types';
-	let { data }: { data: any } = $props();
+	import { db } from '$lib/local/dexie';
+	import type { DirectusUser } from '$lib/types/directus';
+
+	// SvelteKit passes server data as `data`
+	let { data }: { data: { user: DirectusUser } } = $props();
+	let user = data.user; // Make user reactive
+	// console.log(user);
+
+	// // Optionally, you could have a localUser state for Dexie
+	// let localUser = $state(null);
+	
+	// $effect(() => {
+	// 	if (user) {
+	// 		(async () => {
+	// 			await db.users.put(user);
+	// 			localUser = await db.users.get(user.id);
+	// 		})();
+	// 	}
+	// });
 </script>
 
 <h1>Profile</h1>
-{#if data && data.user}
-	<ul>
-		<li><b>ID:</b> {data.user.id}</li>
-		<li><b>Name:</b> {data.user.first_name} {data.user.last_name}</li>
-		<li><b>Email:</b> {data.user.email}</li>
-		<li><b>Status:</b> {data.user.status}</li>
-	</ul>
+{#if user}
+	<p>Server user:</p>
+	<p>{user.firstName} {user.lastName}</p>
+	<p>Local (Dexie) user:</p>
+	<!-- <p>{localUser?.firstName} {localUser?.lastName}</p> -->
 {:else}
-	<p>Could not load user profile.</p>
-{/if} 
+	<p>Loading...</p>
+{/if}
