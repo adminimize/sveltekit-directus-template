@@ -10,7 +10,7 @@ export class LocalDB extends Dexie {
   constructor() {
     super('LocalDB');
     this.version(1).stores({
-      posts: 'id',
+      posts: 'id,title',
       extensionChecks: 'id',
       users: 'id,email',
       // Add more stores as needed

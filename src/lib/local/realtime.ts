@@ -1,4 +1,4 @@
-export async function initializeRealtimeSync(directus: any, collection: string, db: any) {
+export async function initializeRealtimeSync(directus: any, collection: string, db: any, postsState?: any[]) {
   let unsubscribed = false;
   let subscriptions: AsyncIterableIterator<any>[] = [];
 
@@ -20,26 +20,38 @@ export async function initializeRealtimeSync(directus: any, collection: string, 
         console.log(`[Realtime] posts event: ${event.event}`, event);
 
         if (event.event === 'create' || event.event === 'update') {
-          if (Array.isArray(event.data)) {
-            for (const obj of event.data) {
-              await db.posts.put(obj);
-              console.log(`[Realtime] Upserted post:`, obj);
+          const upsert = (obj: any) => {
+            if (postsState) {
+              const idx = postsState.findIndex((p: any) => p.id === obj.id);
+              if (idx !== -1) {
+                postsState[idx] = obj;
+              } else {
+                postsState.push(obj);
+              }
             }
+            db.posts.put(obj);
+            console.log(`[Realtime] Upserted post:`, obj);
+          };
+          if (Array.isArray(event.data)) {
+            for (const obj of event.data) upsert(obj);
           } else if (event.data && event.data.id) {
-            await db.posts.put(event.data);
-            console.log(`[Realtime] Upserted post:`, event.data);
+            upsert(event.data);
           } else {
             console.warn('Received create/update event with unexpected data:', event);
           }
         } else if (event.event === 'delete') {
-          if (Array.isArray(event.data)) {
-            for (const id of event.data) {
-              await db.posts.delete(id);
-              console.log(`[Realtime] Deleted post with id: ${id}`);
+          const remove = (id: any) => {
+            if (postsState) {
+              const idx = postsState.findIndex((p: any) => p.id === id);
+              if (idx !== -1) postsState.splice(idx, 1);
             }
+            db.posts.delete(id);
+            console.log(`[Realtime] Deleted post with id: ${id}`);
+          };
+          if (Array.isArray(event.data)) {
+            for (const id of event.data) remove(id);
           } else if (event.data && event.data.id) {
-            await db.posts.delete(event.data.id);
-            console.log(`[Realtime] Deleted post with id: ${event.data.id}`);
+            remove(event.data.id);
           } else {
             console.warn('Received delete event with unexpected data:', event);
           }

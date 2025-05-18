@@ -42,32 +42,13 @@
         if (browser && data.currentUser) {
             // Use the user's token if available
             const directus = getDirectusInstance(undefined, data.token ?? undefined);
-            const teardown = initializeRealtimeSync(directus, 'posts', db);
+            const teardown = initializeRealtimeSync(directus, 'posts', db, all_posts);
             return teardown;
         }
     });
 
     // Svelte 5: deeply reactive posts array
     let all_posts: Post[] = $state([]);
-
-    $effect(() => {
-        if (browser) {
-            (async () => {
-                all_posts = await db.posts.orderBy('title').toArray();
-            })();
-            const updatePosts = async () => {
-                all_posts = await db.posts.orderBy('title').toArray();
-            };
-            db.posts.hook('creating', updatePosts);
-            db.posts.hook('updating', updatePosts);
-            db.posts.hook('deleting', updatePosts);
-            return () => {
-                db.posts.hook('creating').unsubscribe(updatePosts);
-                db.posts.hook('updating').unsubscribe(updatePosts);
-                db.posts.hook('deleting').unsubscribe(updatePosts);
-            };
-        }
-    });
 </script>
 
 <div>
