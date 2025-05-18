@@ -80,33 +80,59 @@ export async function initializeRealtimeSync(directus: any, collection: string, 
 
 // src/lib/local/realtime.ts
 
+// Debounce helper for per-record debouncing
+const debounceMap = new Map<string, ReturnType<typeof setTimeout>>();
+function debounceById(id: string, fn: () => void, delay = 500) {
+  if (debounceMap.has(id)) {
+    clearTimeout(debounceMap.get(id));
+  }
+  debounceMap.set(id, setTimeout(fn, delay));
+}
+
 export function syncDexieToDirectus(db: any, directus: any, collection: string) {
   // CREATE
   db[collection].hook('creating', async (_primKey: any, obj: any, _transaction: any) => {
     if (!obj.__local_modified) return;
-    try {
-      await directus.request(createItem(collection as string, stripLocalFields(obj)));
-      obj.__local_modified = false;
-      console.log(`[Sync] Created in Directus:`, obj);
-    } catch (err) {
-      console.error(`[Sync] Error creating in Directus:`, err, obj);
-    }
+    console.log('[Dexie CREATE hook] Triggered for', obj);
+    debounceById(obj.id, async () => {
+      try {
+        const payload = stripLocalFields(obj);
+        console.log('[Dexie CREATE hook] Debounced, sending to Directus:', payload);
+        await directus.request(createItem(collection as string, payload));
+        obj.__local_modified = false;
+        console.log(`[Sync] Created in Directus:`, obj);
+      } catch (err) {
+        console.error(`[Sync] Error creating in Directus:`, err, obj);
+      }
+    });
   });
 
   // UPDATE
   db[collection].hook('updating', async (mods: any, primKey: any, obj: any, _transaction: any) => {
-    if (!obj.__local_modified) return;
-    try {
-      await directus.request(updateItem(collection as string, primKey, stripLocalFields(mods)));
-      obj.__local_modified = false;
-      console.log(`[Sync] Updated in Directus:`, primKey, mods);
-    } catch (err) {
-      console.error(`[Sync] Error updating in Directus:`, err, primKey, mods);
+    console.log('[Dexie UPDATE hook] Called');
+    console.log('[Dexie UPDATE hook] primKey:', primKey);
+    console.log('[Dexie UPDATE hook] obj (before):', obj);
+    console.log('[Dexie UPDATE hook] mods:', mods);
+    if (!mods.__local_modified) {
+      console.log('[Dexie UPDATE hook] Skipped: __local_modified is not true in mods');
+      return;
     }
+    debounceById(primKey, async () => {
+      try {
+        const payload = stripLocalFields(mods);
+        console.log('[Dexie UPDATE hook] Debounced, sending to Directus:', payload);
+        await directus.request(updateItem(collection as string, primKey, payload));
+        obj.__local_modified = false;
+        console.log(`[Sync] Updated in Directus:`, primKey, mods);
+      } catch (err) {
+        console.error(`[Sync] Error updating in Directus:`, err, primKey, mods);
+      }
+    });
   });
 
   // DELETE
   db[collection].hook('deleting', async (primKey: any, _obj: any, _transaction: any) => {
+    console.log('[Dexie DELETE hook] Triggered for', primKey);
     try {
       await directus.request(deleteItem(collection as string, primKey));
       console.log(`[Sync] Deleted in Directus:`, primKey);

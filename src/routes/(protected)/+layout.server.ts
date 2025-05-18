@@ -14,7 +14,12 @@ async function loadBulkData(directus: any) {
   for (const col of collectionsToSync) {
     // Fetch all items from the collection
     console.log("syncing", col.endpoint);
-    const response = await directus.request((readItems as any)(col.endpoint));
+    let response;
+    if (col.endpoint === 'posts') {
+      response = await directus.request((readItems as any)(col.endpoint, { filter: { deleted: { _neq: true } } }));
+    } else {
+      response = await directus.request((readItems as any)(col.endpoint));
+    }
     const colItems = keysToCamelCase(response);
     // console.log("all items syncwheee", colItems);
     items[col.name] = colItems;
