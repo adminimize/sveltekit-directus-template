@@ -3,49 +3,73 @@
     import { db } from '$lib/local/dexie';
     import type { Post } from '$lib/types/directus';
     import type { Attachment } from 'svelte/attachments';
-
-    import "quill/dist/quill.snow.css";
-    import "quill/dist/quill.bubble.css";
+    import { EditorState } from "prosemirror-state";
+    import { EditorView } from "prosemirror-view";
+    import { Schema, DOMParser as ProseMirrorDOMParser } from "prosemirror-model";
+    import { schema as basicSchema } from "prosemirror-schema-basic";
+    import { addListNodes } from "prosemirror-schema-list";
+    import { exampleSetup } from "prosemirror-example-setup";
+    import "prosemirror-view/style/prosemirror.css";
+    import "prosemirror-menu/style/menu.css";
 
     let { data } = $props();
     let post = $state<Post | null>(null);
+    let prosemirrorAttach: Attachment | undefined = undefined;
 
-    // Load post from Dexie and update state
     $effect(() => {
         async function loadPost() {
             if (browser && data?.post) {
                 const loaded = await db.posts.get(data.post);
                 post = loaded ?? null;
-                console.log("[snapshot] posteffect", $state.snapshot(post));
+                if (post) {
+                    prosemirrorAttach = prosemirrorAttachment(post.content, handleProseMirrorChange);
+                } else {
+                    prosemirrorAttach = undefined;
+                }
             }
         }
         loadPost();
     });
 
-    function quillAttachment(post: Post | null): Attachment {
-        return (element) => {
-            let quill: any;
-            (async () => {
-                const Quill = (await import('quill')).default;
-                quill = new Quill(element as HTMLElement, {
-                    theme: "bubble",
-                    placeholder: "Write your post content here...",
-                    modules: { toolbar: true }
-                });
+    const mySchema = new Schema({
+        nodes: addListNodes(basicSchema.spec.nodes, "paragraph block*", "block"),
+        marks: basicSchema.spec.marks,
+    });
 
-                // Wait for Quill to be fully initialized
-                setTimeout(() => {
-                    if (post?.content) {
-                        // Use dangerouslyPasteHTML to set HTML content
-                        quill.clipboard.dangerouslyPasteHTML(post.content, 'api');
+    function prosemirrorAttachment(content: any, onChange?: (doc: any) => void): Attachment {
+        return (element: Element) => {
+            let docNode: import("prosemirror-model").Node | undefined = mySchema.topNodeType.createAndFill() ?? undefined;
+            if (content) {
+                try {
+                    docNode = mySchema.nodeFromJSON(typeof content === 'string' ? JSON.parse(content) : content);
+                } catch {
+                    const temp = document.createElement("div");
+                    temp.innerHTML = content;
+                    docNode = ProseMirrorDOMParser.fromSchema(mySchema).parse(temp);
+                }
+            }
+            const state = EditorState.create({
+                doc: docNode,
+                plugins: exampleSetup({ schema: mySchema }),
+            });
+            const view = new EditorView(element as HTMLElement, {
+                state,
+                dispatchTransaction(tr) {
+                    const newState = view.state.apply(tr);
+                    view.updateState(newState);
+                    if (onChange) {
+                        onChange(newState.doc.toJSON());
                     }
-                }, 0);
-            })();
-            // Cleanup
-            return () => {
-                quill = null;
-            };
+                },
+            });
+            return () => view.destroy();
         };
+    }
+
+    function handleProseMirrorChange(docJSON: unknown) {
+        if (post) {
+            post.content = JSON.stringify(docJSON);
+        }
     }
 </script>
 
@@ -60,11 +84,16 @@
                 autocomplete="off"
             />
             <div>
-                <div {@attach quillAttachment(post)}></div>
+                {#if prosemirrorAttach}
+                    <div
+                        {@attach prosemirrorAttach}
+                        style="min-height: 300px;"
+                    ></div>
+                {/if}
             </div>
             <div class="text-sm text-gray-400">Post ID: {post.id}</div>
         {:else}
             <div>Loading...</div>
         {/if}
     </div>
-</div>
+</div> 
