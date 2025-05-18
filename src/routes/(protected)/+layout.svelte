@@ -45,7 +45,17 @@
 
             // Setup realtime sync for posts (browser only)
             if (browser && data.currentUser) {
-                initializeRealtimeSync(directus, 'posts', db, all_posts);
+                initializeRealtimeSync(directus, 'posts', db, all_posts, async () => {
+                  const posts = await db.posts.toArray();
+                  if (status === 'CHANGING' && editingIndex !== null) {
+                    // Only update posts not being edited
+                    all_posts = all_posts.map((post, i) =>
+                      i === editingIndex ? post : posts.find(p => p.id === post.id) || post
+                    );
+                  } else {
+                    all_posts = posts;
+                  }
+                });
             }
         })();
         // No return value for $effect
@@ -55,6 +65,7 @@
 
     let status: 'LOADING' | 'READY' | 'CHANGING' | 'CREATING' = $state('LOADING');
     let all_posts: Post[] = $state(data.bulkData.posts ?? []);
+    let editingIndex: number | null = null;
 
     $effect(() => {
       // Set status to READY after initial data is set
@@ -64,11 +75,22 @@
     });
 
     function updatePostTitle(index: number, newTitle: string) {
+      status = 'CHANGING';
       all_posts = [
         ...all_posts.slice(0, index),
         { ...all_posts[index], title: newTitle, __local_modified: true },
         ...all_posts.slice(index + 1)
       ];
+    }
+
+    function handleInputFocus(index: number) {
+      editingIndex = index;
+      status = 'CHANGING';
+    }
+
+    function handleInputBlur() {
+      editingIndex = null;
+      status = 'READY';
     }
 
     function addPost() {
@@ -125,6 +147,13 @@
 
 <div>
     <h1>Protected Layout</h1>
+    <div class="mb-4 p-3 bg-gray-100 rounded shadow flex items-center space-x-4">
+      <span class="font-mono text-sm">App State:</span>
+      <span class="text-blue-700 font-bold">Status: {status}</span>
+      <span class="text-green-700">Editing: {editingIndex !== null ? `#${editingIndex} (ID: ${all_posts[editingIndex]?.id ?? 'N/A'})` : 'None'}</span>
+      <span class="text-purple-700">Posts: {all_posts.length}</span>
+      <span class="text-pink-700">Ready: {status === 'READY' ? '✅' : '⏳'}</span>
+    </div>
     <!-- Editable Posts List -->
     <div class="bg-white p-6 rounded-lg shadow-md mb-6 border border-gray-200">
       <h2 class="text-xl font-bold mb-4">All Posts (Editable)</h2>
@@ -139,6 +168,8 @@
               type="text"
               value={post.title}
               oninput={e => updatePostTitle(i, (e.target as HTMLInputElement).value)}
+              onfocus={() => handleInputFocus(i)}
+              onblur={handleInputBlur}
               placeholder="Post title"
             />
             <button class="px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600" onclick={() => deletePost(i)}>

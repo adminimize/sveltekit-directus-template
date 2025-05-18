@@ -1,6 +1,7 @@
 import { updateItem, createItem, deleteItem } from '@directus/sdk';
+import { keysToSnakeCase } from '$lib/utils/case';
 
-export async function initializeRealtimeSync(directus: any, collection: string, db: any, stateArray?: any[]) {
+export async function initializeRealtimeSync(directus: any, collection: string, db: any, stateArray?: any[], onUpsert?: () => void) {
   let unsubscribed = false;
   let subscriptions: AsyncIterableIterator<any>[] = [];
 
@@ -10,7 +11,7 @@ export async function initializeRealtimeSync(directus: any, collection: string, 
   }
 
   // Helper to subscribe to a single event type
-  async function subscribeToEvent(eventType: 'create' | 'update' | 'delete') {
+  async function subscribeToEvent(eventType: 'create' | 'update') {
     try {
       const { subscription } = await directus.subscribe(collection, { event: eventType, query: {
         fields: ["*"],
@@ -33,6 +34,7 @@ export async function initializeRealtimeSync(directus: any, collection: string, 
             }
             db[collection].put(obj);
             console.log(`[Realtime] [${collection}] Upserted:`, obj);
+            if (onUpsert) onUpsert();
           };
           if (Array.isArray(event.data)) {
             for (const obj of event.data) upsert(obj);
@@ -41,22 +43,6 @@ export async function initializeRealtimeSync(directus: any, collection: string, 
           } else {
             console.warn(`[Realtime] [${collection}] Received create/update event with unexpected data:`, event);
           }
-        } else if (event.event === 'delete') {
-          const remove = (id: any) => {
-            if (stateArray) {
-              const idx = stateArray.findIndex((p: any) => p.id === id);
-              if (idx !== -1) stateArray.splice(idx, 1);
-            }
-            db[collection].delete(id);
-            console.log(`[Realtime] [${collection}] Deleted with id: ${id}`);
-          };
-          if (Array.isArray(event.data)) {
-            for (const id of event.data) remove(id);
-          } else if (event.data && event.data.id) {
-            remove(event.data.id);
-          } else {
-            console.warn(`[Realtime] [${collection}] Received delete event with unexpected data:`, event);
-          }
         }
       }
     } catch (err) {
@@ -64,10 +50,9 @@ export async function initializeRealtimeSync(directus: any, collection: string, 
     }
   }
 
-  // Start subscriptions for all event types
+  // Start subscriptions for create and update event types only
   subscribeToEvent('create');
   subscribeToEvent('update');
-  subscribeToEvent('delete');
 
   // Teardown function
   return () => {
@@ -82,7 +67,7 @@ export async function initializeRealtimeSync(directus: any, collection: string, 
 
 // Debounce helper for per-record debouncing
 const debounceMap = new Map<string, ReturnType<typeof setTimeout>>();
-function debounceById(id: string, fn: () => void, delay = 500) {
+function debounceById(id: string, fn: () => void, delay = 1000) {
   if (debounceMap.has(id)) {
     clearTimeout(debounceMap.get(id));
   }
@@ -96,9 +81,9 @@ export function syncDexieToDirectus(db: any, directus: any, collection: string) 
     console.log('[Dexie CREATE hook] Triggered for', obj);
     debounceById(obj.id, async () => {
       try {
-        const payload = stripLocalFields(obj);
+        const payload = keysToSnakeCase(stripLocalFields(obj));
         console.log('[Dexie CREATE hook] Debounced, sending to Directus:', payload);
-        await directus.request(createItem(collection as string, payload));
+        await directus.request((createItem as any)(collection, payload));
         obj.__local_modified = false;
         console.log(`[Sync] Created in Directus:`, obj);
       } catch (err) {
@@ -119,9 +104,9 @@ export function syncDexieToDirectus(db: any, directus: any, collection: string) 
     }
     debounceById(primKey, async () => {
       try {
-        const payload = stripLocalFields(mods);
+        const payload = keysToSnakeCase(stripLocalFields(mods));
         console.log('[Dexie UPDATE hook] Debounced, sending to Directus:', payload);
-        await directus.request(updateItem(collection as string, primKey, payload));
+        await directus.request((updateItem as any)(collection, primKey, payload));
         obj.__local_modified = false;
         console.log(`[Sync] Updated in Directus:`, primKey, mods);
       } catch (err) {
@@ -134,7 +119,7 @@ export function syncDexieToDirectus(db: any, directus: any, collection: string) 
   db[collection].hook('deleting', async (primKey: any, _obj: any, _transaction: any) => {
     console.log('[Dexie DELETE hook] Triggered for', primKey);
     try {
-      await directus.request(deleteItem(collection as string, primKey));
+      await directus.request((deleteItem as any)(collection, primKey));
       console.log(`[Sync] Deleted in Directus:`, primKey);
     } catch (err) {
       console.error(`[Sync] Error deleting in Directus:`, err, primKey);

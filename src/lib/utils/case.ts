@@ -16,3 +16,23 @@ export function keysToCamelCase<T>(obj: T): T {
 	}
 	return obj;
 }
+
+// Converts camelCase to snake_case
+export function toSnakeCase(str: string): string {
+	return str.replace(/([A-Z])/g, '_$1').toLowerCase();
+}
+
+// Recursively converts all keys in an object/array to snake_case
+export function keysToSnakeCase<T>(obj: T): T {
+	if (Array.isArray(obj)) {
+		return obj.map(keysToSnakeCase) as any;
+	}
+	if (obj && typeof obj === 'object' && obj.constructor === Object) {
+		const newObj: any = {};
+		for (const [key, value] of Object.entries(obj)) {
+			newObj[toSnakeCase(key)] = keysToSnakeCase(value);
+		}
+		return newObj;
+	}
+	return obj;
+}
