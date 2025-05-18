@@ -9,7 +9,7 @@
 	type LocalPost = Post & { __local_modified?: boolean };
 
 	// SvelteKit passes server data as `data`
-	let { children, data }: { children: any, data: { 
+	let { data }: { data: { 
 			currentUser: DirectusUser, 
 			allUsers: DirectusUser[], 
 			bulkData: BulkData,
@@ -180,5 +180,4 @@
         {/each}
       </div>
     </div>
-    {@render children()}
 </div>
