@@ -22,7 +22,7 @@
 {/if} 
 
 
-<div class="flex flex-col items-center justify-center h-screen">
+<div class="min-h-screen w-full bg-blue-500">
 	{@render children()}
 </div>
 
