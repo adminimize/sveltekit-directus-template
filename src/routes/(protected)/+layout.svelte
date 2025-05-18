@@ -63,7 +63,7 @@
     function updatePostTitle(index: number, newTitle: string) {
       all_posts = [
         ...all_posts.slice(0, index),
-        { ...all_posts[index], title: newTitle },
+        { ...all_posts[index], title: newTitle, __local_modified: true },
         ...all_posts.slice(index + 1)
       ];
     }

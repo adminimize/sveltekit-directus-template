@@ -83,8 +83,10 @@ export async function initializeRealtimeSync(directus: any, collection: string, 
 export function syncDexieToDirectus(db: any, directus: any, collection: string) {
   // CREATE
   db[collection].hook('creating', async (_primKey: any, obj: any, _transaction: any) => {
+    if (!obj.__local_modified) return;
     try {
-      await directus.request(createItem(collection as string, obj));
+      await directus.request(createItem(collection as string, stripLocalFields(obj)));
+      obj.__local_modified = false;
       console.log(`[Sync] Created in Directus:`, obj);
     } catch (err) {
       console.error(`[Sync] Error creating in Directus:`, err, obj);
@@ -92,9 +94,11 @@ export function syncDexieToDirectus(db: any, directus: any, collection: string) 
   });
 
   // UPDATE
-  db[collection].hook('updating', async (mods: any, primKey: any, _obj: any, _transaction: any) => {
+  db[collection].hook('updating', async (mods: any, primKey: any, obj: any, _transaction: any) => {
+    if (!obj.__local_modified) return;
     try {
-      await directus.request(updateItem(collection as string, primKey, mods));
+      await directus.request(updateItem(collection as string, primKey, stripLocalFields(mods)));
+      obj.__local_modified = false;
       console.log(`[Sync] Updated in Directus:`, primKey, mods);
     } catch (err) {
       console.error(`[Sync] Error updating in Directus:`, err, primKey, mods);
@@ -110,5 +114,10 @@ export function syncDexieToDirectus(db: any, directus: any, collection: string) 
       console.error(`[Sync] Error deleting in Directus:`, err, primKey);
     }
   });
+}
+
+function stripLocalFields(obj: any) {
+  const { __local_modified, ...rest } = obj;
+  return rest;
 }
 
