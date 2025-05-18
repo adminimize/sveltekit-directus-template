@@ -1,4 +1,6 @@
-export async function initializeRealtimeSync(directus: any, collection: string, db: any, postsState?: any[]) {
+import { updateItem, createItem, deleteItem } from '@directus/sdk';
+
+export async function initializeRealtimeSync(directus: any, collection: string, db: any, stateArray?: any[]) {
   let unsubscribed = false;
   let subscriptions: AsyncIterableIterator<any>[] = [];
 
@@ -17,48 +19,48 @@ export async function initializeRealtimeSync(directus: any, collection: string, 
 
       for await (const event of subscription) {
         if (unsubscribed) break;
-        console.log(`[Realtime] posts event: ${event.event}`, event);
+        console.log(`[Realtime] [${collection}] event: ${event.event}`, event);
 
         if (event.event === 'create' || event.event === 'update') {
           const upsert = (obj: any) => {
-            if (postsState) {
-              const idx = postsState.findIndex((p: any) => p.id === obj.id);
+            if (stateArray) {
+              const idx = stateArray.findIndex((p: any) => p.id === obj.id);
               if (idx !== -1) {
-                postsState[idx] = obj;
+                stateArray[idx] = obj;
               } else {
-                postsState.push(obj);
+                stateArray.push(obj);
               }
             }
-            db.posts.put(obj);
-            console.log(`[Realtime] Upserted post:`, obj);
+            db[collection].put(obj);
+            console.log(`[Realtime] [${collection}] Upserted:`, obj);
           };
           if (Array.isArray(event.data)) {
             for (const obj of event.data) upsert(obj);
           } else if (event.data && event.data.id) {
             upsert(event.data);
           } else {
-            console.warn('Received create/update event with unexpected data:', event);
+            console.warn(`[Realtime] [${collection}] Received create/update event with unexpected data:`, event);
           }
         } else if (event.event === 'delete') {
           const remove = (id: any) => {
-            if (postsState) {
-              const idx = postsState.findIndex((p: any) => p.id === id);
-              if (idx !== -1) postsState.splice(idx, 1);
+            if (stateArray) {
+              const idx = stateArray.findIndex((p: any) => p.id === id);
+              if (idx !== -1) stateArray.splice(idx, 1);
             }
-            db.posts.delete(id);
-            console.log(`[Realtime] Deleted post with id: ${id}`);
+            db[collection].delete(id);
+            console.log(`[Realtime] [${collection}] Deleted with id: ${id}`);
           };
           if (Array.isArray(event.data)) {
             for (const id of event.data) remove(id);
           } else if (event.data && event.data.id) {
             remove(event.data.id);
           } else {
-            console.warn('Received delete event with unexpected data:', event);
+            console.warn(`[Realtime] [${collection}] Received delete event with unexpected data:`, event);
           }
         }
       }
     } catch (err) {
-      console.error('Directus realtime subscription error:', err);
+      console.error(`[Realtime] [${collection}] subscription error:`, err);
     }
   }
 
@@ -74,5 +76,39 @@ export async function initializeRealtimeSync(directus: any, collection: string, 
       if (sub && sub.return) sub.return();
     }
   };
+}
+
+// src/lib/local/realtime.ts
+
+export function syncDexieToDirectus(db: any, directus: any, collection: string) {
+  // CREATE
+  db[collection].hook('creating', async (_primKey: any, obj: any, _transaction: any) => {
+    try {
+      await directus.request(createItem(collection as string, obj));
+      console.log(`[Sync] Created in Directus:`, obj);
+    } catch (err) {
+      console.error(`[Sync] Error creating in Directus:`, err, obj);
+    }
+  });
+
+  // UPDATE
+  db[collection].hook('updating', async (mods: any, primKey: any, _obj: any, _transaction: any) => {
+    try {
+      await directus.request(updateItem(collection as string, primKey, mods));
+      console.log(`[Sync] Updated in Directus:`, primKey, mods);
+    } catch (err) {
+      console.error(`[Sync] Error updating in Directus:`, err, primKey, mods);
+    }
+  });
+
+  // DELETE
+  db[collection].hook('deleting', async (primKey: any, _obj: any, _transaction: any) => {
+    try {
+      await directus.request(deleteItem(collection as string, primKey));
+      console.log(`[Sync] Deleted in Directus:`, primKey);
+    } catch (err) {
+      console.error(`[Sync] Error deleting in Directus:`, err, primKey);
+    }
+  });
 }
 

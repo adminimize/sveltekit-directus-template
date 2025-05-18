@@ -31,11 +31,16 @@ export const load: LayoutServerLoad = async ({ fetch, locals }) => {
     const directus = getDirectusInstance(fetch, locals.token ?? undefined);
 
     const items = await loadBulkData(directus);
-    // console.log("items layout level", items);
+    console.log('SERVER: items', items);
 	// const directus = getDirectusInstance(fetch, locals.token ?? undefined);
 	const userRaw = await directus.request(readMe());
-  const allUsers = keysToCamelCase(await directus.request(readUsers())) as DirectusUser[];
+  const allUsers = keysToCamelCase(await directus.request(readUsers({
+    fields: ["id", "email"],
+  }))) as DirectusUser[];
+  console.log("All users", allUsers);
+  console.log('SERVER: allUsers', allUsers);
 	const currentUser = keysToCamelCase(userRaw) as DirectusUser;
+  console.log('SERVER: currentUser', currentUser);
   const bulkData = keysToCamelCase(items) as BulkData;
 
     // console.log("User", user);
