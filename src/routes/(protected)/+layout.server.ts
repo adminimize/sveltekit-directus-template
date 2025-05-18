@@ -14,11 +14,10 @@ async function loadBulkData(directus: any) {
   for (const col of collectionsToSync) {
     // Fetch all items from the collection
     console.log("syncing", col.endpoint);
-    const response = await directus.request(readItems(col.endpoint));
+    const response = await directus.request((readItems as any)(col.endpoint));
     const colItems = keysToCamelCase(response);
-    console.log("all items syncwheee", colItems);
-
-    items[col.endpoint] = colItems;
+    // console.log("all items syncwheee", colItems);
+    items[col.name] = colItems;
   }
 
   return items;
@@ -32,13 +31,13 @@ export const load: LayoutServerLoad = async ({ fetch, locals }) => {
     const directus = getDirectusInstance(fetch, locals.token ?? undefined);
 
     const items = await loadBulkData(directus);
-    console.log("items layout level", items);
+    // console.log("items layout level", items);
 	// const directus = getDirectusInstance(fetch, locals.token ?? undefined);
 	const userRaw = await directus.request(readMe());
   const allUsers = keysToCamelCase(await directus.request(readUsers())) as DirectusUser[];
-	const user = keysToCamelCase(userRaw) as DirectusUser;
+	const currentUser = keysToCamelCase(userRaw) as DirectusUser;
   const bulkData = keysToCamelCase(items) as BulkData;
 
     // console.log("User", user);
-	return { user, bulkData, allUsers };
+	return { currentUser, bulkData, allUsers, token: locals.token };
 };

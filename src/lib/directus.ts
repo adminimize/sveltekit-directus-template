@@ -1,4 +1,4 @@
-import { createDirectus, rest, authentication } from "@directus/sdk";
+import { createDirectus, rest, authentication, realtime } from "@directus/sdk";
 import { PUBLIC_APIURL, PUBLIC_COOKIE_DOMAIN } from '$env/static/public';
 
 export function getDirectusInstance(fetch?: typeof window.fetch, token?: string) {
@@ -6,7 +6,8 @@ export function getDirectusInstance(fetch?: typeof window.fetch, token?: string)
 	const options = fetch ? { globals: { fetch } } : {};
 	const directus = createDirectus(PUBLIC_APIURL, options)
 		.with(authentication('cookie', { credentials: 'include' }))
-		.with(rest());
+		.with(rest())
+		.with(realtime());
 	if (token) directus.setToken(token);
 	console.log('[Directus] getDirectusInstance returning directus instance:', !!directus);
 	return directus;

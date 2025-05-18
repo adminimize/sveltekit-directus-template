@@ -9,7 +9,7 @@ export const collectionsToSync = [
     type: 'post',
   },
   {
-    name: 'extension_checks',
+    name: 'extensionChecks',
     endpoint: 'extension_checks',
     type: 'ExtensionCheck',
   },

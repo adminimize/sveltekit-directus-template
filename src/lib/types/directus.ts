@@ -8,6 +8,14 @@ export type Post = InferSelectModel<typeof posts>;
 
 export type BulkData = {
     posts: Post[];
-    extension_checks: ExtensionCheck[];
+    extensionChecks: ExtensionCheck[];
     // Add more collections as needed
   };
+
+export type BulkDataItemMap = {
+  posts: Post;
+  extensionChecks: ExtensionCheck;
+  // Add more collections as needed
+};
+
+export const bulkDataTableNames = ['posts', 'extension_checks'] as const;
