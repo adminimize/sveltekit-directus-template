@@ -3,7 +3,7 @@
     import { db } from '$lib/local/dexie';
     import type { Post } from '$lib/types/directus';
     import Editor from '$lib/components/inputs/Editor.svelte';
-
+    import RichTextEditor from '$lib/components/inputs/RichTextEditor.svelte';
     let { data } = $props();
     let post = $state<Post | null>(null);
 
@@ -25,6 +25,7 @@
 </script>
 
 <div class="flex flex-col items-center w-full min-h-screen bg-gray-50 py-12 px-4">
+    <RichTextEditor />
     <div class="w-full bg-white rounded-xl shadow-lg p-8">
         {#if post}
             <input
