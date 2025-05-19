@@ -1,0 +1,3 @@
+[submodule "src/lib/components/inputs/prosemirror-svelte5"]
+	path = src/lib/components/inputs/prosemirror-svelte5
+	url = https://github.com/cdslipp/prosemirror-svelte5.git
