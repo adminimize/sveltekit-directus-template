@@ -1,32 +1,28 @@
 <script lang="ts">
-    import ProsemirrorEditor from "prosemirror-svelte";
+    import ProsemirrorEditor from "./prosemirror-svelte5/ProsemirrorEditor.svelte";
     import { browser } from "$app/environment";
-    import { createRichTextEditor, clear, toHTML, toPlainText } from 'prosemirror-svelte/state';  
+    import { createRichTextEditor } from './prosemirror-svelte5/state';  
     
-   let { contents, autofocus = true } = $props();
+   let { content = $bindable(), autofocus = false } = $props();
 
-  
-    let editorState = $state(browser ? createRichTextEditor(contents) : undefined);
+   if(browser) {
+   console.log("contents", content);
+   }
+
+    let editorState = $state(browser ? createRichTextEditor(content) : undefined);
     let focusEditor = $state<(() => void) | undefined>(undefined);
 
     function handleChange(event: CustomEvent) {
       editorState = event.detail.editorState;
     }
-  
-    // Attachment to focus the editor on mount
-    // const focusOnMount: Attachment = (element) => {
-    //     console.log("Focusing editor", element);
-    //     focusEditor?.();
-    //     return () => {};
-    // };
-    
 
     $effect(() => {
       if (editorState && autofocus) focusEditor?.();
     });
 
-  
   </script>
+
+  {content}
   
   {#if browser}
   <ProsemirrorEditor
