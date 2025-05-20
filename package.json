@@ -53,6 +53,7 @@
 	},
 	"dependencies": {
 		"@directus/sdk": "^19.1.0",
+		"@directus/visual-editing": "^1.1.0",
 		"@neondatabase/serverless": "^0.10.4",
 		"@node-rs/argon2": "^2.0.2",
 		"@oslojs/crypto": "^1.0.1",

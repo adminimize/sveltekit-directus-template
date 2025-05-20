@@ -15,11 +15,11 @@
 
 
 <div class="flex flex-col items-center justify-center bg-gray-100">
-{#if data.token} 
+<!-- {#if data.token} 
 <a href="/logout" class="border border-black rounded-md p-2">logout</a> 
 {:else} 
 <a href="/login">Login</a> 
-{/if} 
+{/if}  -->
 
 
 <div class="min-h-screen w-full bg-blue-500">
