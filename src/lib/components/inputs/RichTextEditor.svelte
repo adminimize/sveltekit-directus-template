@@ -2,6 +2,7 @@
     import ProsemirrorEditor from "./prosemirror-svelte5/ProsemirrorEditor.svelte";
     import { browser } from "$app/environment";
     import { createRichTextEditor } from './prosemirror-svelte5/state';  
+    import type { EditorState } from 'prosemirror-state';
     
    let { content = $bindable(), autofocus = false } = $props();
 
@@ -12,9 +13,12 @@
     let editorState = $state(browser ? createRichTextEditor(content) : undefined);
     let focusEditor = $state<(() => void) | undefined>(undefined);
 
-    function handleChange(event: CustomEvent) {
-      editorState = event.detail.editorState;
+    function handleChange(detail: { editorState: EditorState }) {
+      editorState = detail.editorState;
     }
+
+    function handleTransaction() {}
+    function handleCustom() {}
 
     $effect(() => {
       if (editorState && autofocus) focusEditor?.();
@@ -22,13 +26,15 @@
 
   </script>
 
-  {content}
   
   {#if browser}
+  <h1>RichTextEditor</h1>
   <ProsemirrorEditor
     {editorState}
-    bind:focus={focusEditor}
-    on:change={handleChange}
+    bind:focusEditor={focusEditor}
+    onChange={handleChange}
+    onTransaction={handleTransaction}
+    onCustom={handleCustom}
     placeholder="Go ahead and edit me!"
   />
   
